@@ -5,7 +5,7 @@
 Paste this single line into Codex:
 
 ```text
-请安装这个工具：https://github.com/allen-yanQin/codex-usage-menu
+请安装这个工具：https://github.com/wanweiLab/codex-usage-menu
 ```
 
 Codex should clone the repository into a temporary directory, inspect the source and installer, run the tests, execute `./scripts/install.sh`, verify the code signature, and report the result.
@@ -13,7 +13,7 @@ Codex should clone the repository into a temporary directory, inspect the source
 ## Install manually
 
 ```bash
-git clone https://github.com/allen-yanQin/codex-usage-menu.git
+git clone https://github.com/wanweiLab/codex-usage-menu.git
 cd codex-usage-menu
 swift test
 ./scripts/install.sh

@@ -13,7 +13,7 @@ CodeX｜周 68%
 把下面这一行发给 Codex：
 
 ```text
-请安装这个工具：https://github.com/allen-yanQin/codex-usage-menu
+请安装这个工具：https://github.com/wanweiLab/codex-usage-menu
 ```
 
 Codex 会先检查仓库和安装脚本，然后在本机编译、测试、安装并启动应用。默认安装位置是 `~/Applications/Codex Usage.app`，不需要 `sudo`。
@@ -56,7 +56,7 @@ codex app-server --stdio
 ## 手动安装
 
 ```bash
-git clone https://github.com/allen-yanQin/codex-usage-menu.git
+git clone https://github.com/wanweiLab/codex-usage-menu.git
 cd codex-usage-menu
 swift test
 ./scripts/install.sh
