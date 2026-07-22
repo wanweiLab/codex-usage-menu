@@ -3,12 +3,14 @@ set -euo pipefail
 
 SCRIPT_DIR="${0:A:h}"
 PROJECT_DIR="${SCRIPT_DIR:h}"
-APP_NAME="Codex Usage.app"
+APP_NAME="Codex Pulse.app"
+LEGACY_APP_NAME="Codex Usage.app"
 INSTALL_ROOT="${INSTALL_DIR:-$HOME/Applications}"
 DESTINATION="$INSTALL_ROOT/$APP_NAME"
+LEGACY_DESTINATION="$INSTALL_ROOT/$LEGACY_APP_NAME"
 TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/codex-usage-install.XXXXXX")"
 STAGED_APP="$TEMP_ROOT/$APP_NAME"
-BACKUP_APP="$INSTALL_ROOT/.Codex Usage.app.backup.$$"
+BACKUP_APP="$INSTALL_ROOT/.Codex Pulse.app.backup.$$"
 BACKUP_CREATED=0
 
 cleanup() {
@@ -24,7 +26,7 @@ restore_backup() {
 trap 'restore_backup; cleanup' EXIT
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
-    echo "错误：Codex Usage 目前仅支持 macOS。" >&2
+    echo "错误：Codex Pulse 目前仅支持 macOS。" >&2
     exit 1
 fi
 
@@ -66,13 +68,14 @@ if ! CODEX_PATH="$(find_codex)"; then
 fi
 
 echo "找到 Codex：$CODEX_PATH"
-echo "正在本机编译 Codex Usage…"
+echo "正在本机编译 Codex Pulse…"
 cd "$PROJECT_DIR"
 swift build -c release
 BIN_DIR="$(swift build -c release --show-bin-path)"
 mkdir -p "$STAGED_APP/Contents/MacOS" "$STAGED_APP/Contents/Resources"
 cp "$BIN_DIR/CodexUsageMenu" "$STAGED_APP/Contents/MacOS/CodexUsageMenu"
 cp "$PROJECT_DIR/Resources/Info.plist" "$STAGED_APP/Contents/Info.plist"
+cp "$PROJECT_DIR/Resources/AppIcon.icns" "$STAGED_APP/Contents/Resources/AppIcon.icns"
 codesign --force --deep --sign - "$STAGED_APP"
 
 codesign --verify --deep --strict "$STAGED_APP"
@@ -90,6 +93,11 @@ codesign --verify --deep --strict "$DESTINATION"
 if [[ "$BACKUP_CREATED" == "1" ]]; then
     rm -rf "$BACKUP_APP"
     BACKUP_CREATED=0
+fi
+
+if [[ -e "$LEGACY_DESTINATION" && "$LEGACY_DESTINATION" != "$DESTINATION" ]]; then
+    rm -rf "$LEGACY_DESTINATION"
+    echo "已移除旧版应用：$LEGACY_DESTINATION"
 fi
 
 if [[ "${NO_LAUNCH:-0}" != "1" ]]; then

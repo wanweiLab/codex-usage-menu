@@ -1,6 +1,12 @@
-# Codex Usage Menu
+<p align="center">
+  <img src="Resources/AppIcon.png" width="128" alt="Codex Pulse icon">
+</p>
 
-一个轻量的 macOS 菜单栏应用，直接显示当前 Codex 账号的剩余额度。
+<h1 align="center">Codex Pulse</h1>
+
+<p align="center">一个轻量的 macOS 菜单栏 Codex 额度监控工具。</p>
+
+> 非官方社区项目，与 OpenAI 无隶属关系，也未获得 OpenAI 的认可或背书。Codex 和 OpenAI 是其各自权利人的商标。
 
 菜单栏常驻显示：
 
@@ -16,13 +22,12 @@ CodeX｜周 68%
 请安装这个工具：https://github.com/wanweiLab/codex-usage-menu
 ```
 
-Codex 会先检查仓库和安装脚本，然后在本机编译、测试、安装并启动应用。默认安装位置是 `~/Applications/Codex Usage.app`，不需要 `sudo`。
-
-> 这是由社区维护的非官方项目，与 OpenAI 无隶属或背书关系。Codex 和 OpenAI 是其各自权利人的商标。
+Codex 会先检查仓库和安装脚本，然后在本机编译、测试、安装并启动应用。默认安装位置是 `~/Applications/Codex Pulse.app`，不需要 `sudo`。
 
 ## 功能
 
 - 菜单栏显示 `CodeX｜周 xx%` 格式的本周剩余额度
+- 原生 Codex Pulse 应用图标和简洁的 macOS 菜单栏界面
 - 展示周额度、短周期额度和重置时间
 - 启动时读取一次账号套餐和脱敏邮箱
 - 每 5 分钟自动刷新，支持手动刷新
@@ -77,12 +82,15 @@ swift test
 swift run
 ```
 
-构建 `.app`：
+生成图标并构建 `.app`：
 
 ```bash
+./scripts/generate-icon.sh
 ./scripts/build-app.sh
-open "build/Codex Usage.app"
+open "build/Codex Pulse.app"
 ```
+
+仓库已经包含可直接构建的 `AppIcon.icns`；只有重新生成图标时才需要完整安装 Xcode（`actool`）。
 
 真实账号集成测试默认关闭，需要时显式运行：
 

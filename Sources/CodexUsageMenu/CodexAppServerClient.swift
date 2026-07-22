@@ -90,7 +90,7 @@ struct CodexAppServerClient: Sendable {
         }
 
         let messages = [
-            #"{"method":"initialize","id":1,"params":{"clientInfo":{"name":"wanwei_codex_usage_menu","title":"Codex Usage Menu","version":"0.1.0"}}}"#,
+            #"{"method":"initialize","id":1,"params":{"clientInfo":{"name":"wanwei_codex_pulse","title":"Codex Pulse","version":"0.2.0"}}}"#,
             #"{"method":"initialized","params":{}}"#,
             #"{"method":"\#(method)","id":2,"params":\#(paramsJSON)}"#
         ]

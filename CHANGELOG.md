@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented here.
 
+## 0.2.0 - 2026-07-22
+
+- Rename the user-facing app from Codex Usage to Codex Pulse.
+- Add the Codex Pulse macOS application icon and reproducible icon-generation script.
+- Preserve the existing `CodeX｜周 xx%` menu-bar format.
+- Remove the legacy `Codex Usage.app` bundle after a successful upgrade.
+
 ## 0.1.0 - 2026-07-22
 
 - Show weekly remaining Codex usage in the macOS menu bar.

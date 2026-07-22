@@ -47,7 +47,7 @@ struct UsageMenuView: View {
             .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Codex Usage")
+                Text("Codex Pulse")
                     .font(.system(size: 15, weight: .semibold))
                 Text(planLabel)
                     .font(.system(size: 11))
@@ -145,8 +145,8 @@ struct UsageMenuView: View {
                     .frame(width: 30, height: 30)
             }
             .buttonStyle(.plain)
-            .help("退出 Codex Usage")
-            .accessibilityLabel("退出 Codex Usage")
+            .help("退出 Codex Pulse")
+            .accessibilityLabel("退出 Codex Pulse")
         }
         .padding(.horizontal, 14)
         .frame(height: 54)

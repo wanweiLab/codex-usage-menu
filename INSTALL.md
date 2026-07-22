@@ -19,7 +19,7 @@ swift test
 ./scripts/install.sh
 ```
 
-The default destination is `~/Applications/Codex Usage.app`. To update, pull the latest source and run `./scripts/install.sh` again.
+The default destination is `~/Applications/Codex Pulse.app`. To update, pull the latest source and run `./scripts/install.sh` again. The installer removes the legacy `Codex Usage.app` bundle after a successful upgrade.
 
 ## Uninstall
 

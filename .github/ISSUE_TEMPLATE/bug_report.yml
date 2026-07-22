@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible problem with Codex Usage.
+description: Report a reproducible problem with Codex Pulse.
 title: "[Bug]: "
 labels: [bug]
 body:

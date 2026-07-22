@@ -2,7 +2,7 @@
 
 ## Data flow
 
-Codex Usage starts the locally installed Codex executable with `codex app-server --stdio` and calls only:
+Codex Pulse starts the locally installed Codex executable with `codex app-server --stdio` and calls only:
 
 - `account/read`, once when the app starts
 - `account/rateLimits/read`, at startup, every five minutes, and on manual refresh

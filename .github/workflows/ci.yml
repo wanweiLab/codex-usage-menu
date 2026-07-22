@@ -19,4 +19,4 @@ jobs:
       - name: Build app bundle
         run: ./scripts/build-app.sh
       - name: Verify app bundle
-        run: codesign --verify --deep --strict "build/Codex Usage.app"
+        run: codesign --verify --deep --strict "build/Codex Pulse.app"
