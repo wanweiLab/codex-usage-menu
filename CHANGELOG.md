@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented here.
 
+## 0.2.1 - 2026-07-23
+
+- Fix the macOS app icon by generating every required icon size instead of a cropped single-size asset.
+
 ## 0.2.0 - 2026-07-22
 
 - Rename the user-facing app from Codex Usage to Codex Pulse.

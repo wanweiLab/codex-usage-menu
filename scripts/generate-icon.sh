@@ -47,7 +47,11 @@ fi
 
 mkdir -p "$APPICON_SET" "$COMPILED_DIR"
 cp "$APPICON_MANIFEST" "$APPICON_SET/Contents.json"
-sips -z 1024 1024 "$SOURCE_ICON" --out "$APPICON_SET/AppIcon-1024.png" >/dev/null
+
+for size in 16 32 64 128 256 512 1024; do
+    sips -z "$size" "$size" "$SOURCE_ICON" \
+        --out "$APPICON_SET/AppIcon-$size.png" >/dev/null
+done
 
 # macOS 26 的 iconutil 无法稳定回编传统 iconset，改用 Apple 的
 # Asset Catalog 编译链生成兼容的新式 .icns。
