@@ -3,19 +3,32 @@ import Foundation
 
 @MainActor
 final class CodexUsageService: ObservableObject {
+    static let defaultMenuBarPrefix = "CodeX"
+    static let maximumMenuBarPrefixLength = 8
+
     @Published private(set) var snapshot: UsageSnapshot?
     @Published private(set) var account: CodexAccount?
     @Published private(set) var state: UsageLoadState = .idle
     @Published private(set) var lastFailure: UsageFailure?
     @Published private(set) var isRefreshing = false
+    @Published private(set) var menuBarPrefix: String
 
     private let client: any CodexUsageClient
+    private let defaults: UserDefaults
     private var pollingTask: Task<Void, Never>?
     private var activeRefresh: Task<Void, Never>?
     private var activeRefreshID: UUID?
 
-    init(client: any CodexUsageClient = CodexAppServerClient()) {
+    init(
+        client: any CodexUsageClient = CodexAppServerClient(),
+        defaults: UserDefaults = .standard
+    ) {
         self.client = client
+        self.defaults = defaults
+        let savedPrefix = defaults.string(forKey: Self.menuBarPrefixDefaultsKey)
+        menuBarPrefix = Self.sanitizedMenuBarPrefix(
+            savedPrefix ?? Self.defaultMenuBarPrefix
+        )
     }
 
     deinit {
@@ -25,10 +38,17 @@ final class CodexUsageService: ObservableObject {
     }
 
     var menuBarText: String {
+        let usageText: String
         if let percent = snapshot?.weeklyWindow?.remainingPercent {
-            return "CodeX｜周 \(percent)%"
+            usageText = "周 \(percent)%"
+        } else {
+            usageText = state == .loading ? "周 …" : "周 --"
         }
-        return state == .loading ? "CodeX｜周 …" : "CodeX｜周 --"
+
+        guard !menuBarPrefix.isEmpty else {
+            return usageText
+        }
+        return "\(menuBarPrefix)｜\(usageText)"
     }
 
     var menuBarAccessibilityLabel: String {
@@ -78,6 +98,17 @@ final class CodexUsageService: ObservableObject {
             activeRefreshID = nil
             isRefreshing = false
         }
+    }
+
+    func updateMenuBarPrefix(_ value: String) {
+        let sanitized = Self.sanitizedMenuBarPrefix(value)
+        guard sanitized != menuBarPrefix else { return }
+        menuBarPrefix = sanitized
+        defaults.set(sanitized, forKey: Self.menuBarPrefixDefaultsKey)
+    }
+
+    func resetMenuBarPrefix() {
+        updateMenuBarPrefix(Self.defaultMenuBarPrefix)
     }
 
     var diagnosticText: String {
@@ -130,5 +161,15 @@ final class CodexUsageService: ObservableObject {
                 .time(includingFractionalSeconds: false)
                 .timeSeparator(.colon)
         )
+    }
+
+    private static let menuBarPrefixDefaultsKey = "menuBarPrefix"
+
+    private static func sanitizedMenuBarPrefix(_ value: String) -> String {
+        let singleLine = value
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+        return String(singleLine.prefix(maximumMenuBarPrefixLength))
     }
 }

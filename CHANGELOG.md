@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented here.
 
+## 0.3.1 - 2026-07-23
+
+- Add a locally persisted menu-bar prefix setting with live preview, blank mode, and reset to default.
+
 ## 0.3.0 - 2026-07-23
 
 - Keep one serialized Codex App Server connection alive and reconnect once after transport failures.

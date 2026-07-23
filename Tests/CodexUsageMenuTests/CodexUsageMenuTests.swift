@@ -136,6 +136,63 @@ final class CodexUsageMenuTests: XCTestCase {
         XCTAssertTrue(result.3.contains("认证信息: 未读取、未包含"))
     }
 
+    func testCustomMenuBarPrefixPersistsAndCanBeBlank() async {
+        let suiteName = "CodexUsageMenuTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+
+        let service = await MainActor.run {
+            CodexUsageService(
+                client: StubUsageClient(results: []),
+                defaults: UserDefaults(suiteName: suiteName)!
+            )
+        }
+
+        let initialText = await MainActor.run { service.menuBarText }
+        XCTAssertEqual(initialText, "CodeX｜周 --")
+
+        await MainActor.run {
+            service.updateMenuBarPrefix("万维 Lab")
+        }
+        let customText = await MainActor.run { service.menuBarText }
+        XCTAssertEqual(customText, "万维 Lab｜周 --")
+
+        let restoredService = await MainActor.run {
+            CodexUsageService(
+                client: StubUsageClient(results: []),
+                defaults: UserDefaults(suiteName: suiteName)!
+            )
+        }
+        let restoredText = await MainActor.run { restoredService.menuBarText }
+        XCTAssertEqual(restoredText, "万维 Lab｜周 --")
+
+        await MainActor.run {
+            restoredService.updateMenuBarPrefix("   ")
+        }
+        let blankText = await MainActor.run { restoredService.menuBarText }
+        XCTAssertEqual(blankText, "周 --")
+    }
+
+    func testMenuBarPrefixIsSingleLineAndLimitedToEightCharacters() async {
+        let suiteName = "CodexUsageMenuTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let service = await MainActor.run {
+            CodexUsageService(
+                client: StubUsageClient(results: []),
+                defaults: UserDefaults(suiteName: suiteName)!
+            )
+        }
+
+        await MainActor.run {
+            service.updateMenuBarPrefix(" 1234\n567890 ")
+        }
+
+        let result = await MainActor.run {
+            (service.menuBarPrefix, service.menuBarText)
+        }
+        XCTAssertEqual(result.0, "1234 567")
+        XCTAssertEqual(result.1, "1234 567｜周 --")
+    }
+
     func testRelativeResetFormatting() {
         let now = Date(timeIntervalSince1970: 1_000_000)
         XCTAssertEqual(

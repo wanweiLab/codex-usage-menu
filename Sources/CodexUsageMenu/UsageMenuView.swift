@@ -4,13 +4,20 @@ import SwiftUI
 struct UsageMenuView: View {
     @ObservedObject var service: CodexUsageService
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isShowingPreferences = false
 
     var body: some View {
         VStack(spacing: 0) {
             accentBar
             header
             Divider()
-            content
+            if isShowingPreferences {
+                preferences
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .trailing)))
+            } else {
+                content
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .leading)))
+            }
             Divider()
             footer
         }
@@ -131,12 +138,24 @@ struct UsageMenuView: View {
 
     private var footer: some View {
         HStack {
-            Text(lastUpdatedText)
+            Text(isShowingPreferences ? "本机设置" : lastUpdatedText)
                 .font(.system(size: 10.5))
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
 
             Spacer()
+
+            Button {
+                withAnimation(.easeInOut(duration: reduceMotion ? 0 : 0.18)) {
+                    isShowingPreferences.toggle()
+                }
+            } label: {
+                Image(systemName: isShowingPreferences ? "gearshape.fill" : "gearshape")
+                    .frame(width: 30, height: 30)
+            }
+            .buttonStyle(.plain)
+            .help(isShowingPreferences ? "返回额度" : "显示设置")
+            .accessibilityLabel(isShowingPreferences ? "返回额度" : "打开显示设置")
 
             Button {
                 Task { await service.refresh() }
@@ -145,7 +164,8 @@ struct UsageMenuView: View {
                     .frame(width: 30, height: 30)
             }
             .buttonStyle(.plain)
-            .disabled(service.isRefreshing)
+            .disabled(service.isRefreshing || isShowingPreferences)
+            .opacity(isShowingPreferences ? 0.35 : 1)
             .help("刷新额度")
             .accessibilityLabel("刷新额度")
 
@@ -162,6 +182,72 @@ struct UsageMenuView: View {
         .padding(.horizontal, 14)
         .frame(height: 54)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.45))
+    }
+
+    private var preferences: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("状态栏显示")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("自定义周额度前面的文字，留空则只显示额度。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 7) {
+                HStack {
+                    TextField(
+                        "例如 CodeX",
+                        text: Binding(
+                            get: { service.menuBarPrefix },
+                            set: { service.updateMenuBarPrefix($0) }
+                        )
+                    )
+                    .textFieldStyle(.roundedBorder)
+
+                    Text(
+                        "\(service.menuBarPrefix.count)/\(CodexUsageService.maximumMenuBarPrefixLength)"
+                    )
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .frame(width: 30, alignment: .trailing)
+                }
+
+                HStack(spacing: 4) {
+                    Image(systemName: "chart.donut")
+                    Text(service.menuBarText)
+                        .monospacedDigit()
+                }
+                .font(.system(size: 12, weight: .medium))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(
+                    Color(nsColor: .controlBackgroundColor),
+                    in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                )
+                .accessibilityLabel("状态栏预览：\(service.menuBarText)")
+            }
+
+            HStack {
+                Button("恢复默认") {
+                    service.resetMenuBarPrefix()
+                }
+                .disabled(service.menuBarPrefix == CodexUsageService.defaultMenuBarPrefix)
+
+                Spacer()
+
+                Button("完成") {
+                    withAnimation(.easeInOut(duration: reduceMotion ? 0 : 0.18)) {
+                        isShowingPreferences = false
+                    }
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 18)
+        .frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
     }
 
     private var planLabel: String {
