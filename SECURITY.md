@@ -9,6 +9,8 @@ Codex Pulse starts one locally installed Codex executable with `codex app-server
 
 The Codex child process uses its existing login. This app does not read, copy, transmit, or save tokens, API keys, browser cookies, Keychain items, or Codex authentication files. Account email is masked before display. No analytics or telemetry is included.
 
+The optional menu-bar prefix is stored only in the current user's macOS `UserDefaults`. It is never sent to Codex, OpenAI, or any third party.
+
 The installer builds from the checked-out Swift source, ad-hoc signs the local app bundle, installs it in `~/Applications`, and does not use `sudo`.
 
 ## Reporting a vulnerability
