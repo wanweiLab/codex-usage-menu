@@ -8,6 +8,8 @@
 
 > 非官方社区项目，与 OpenAI 无隶属关系，也未获得 OpenAI 的认可或背书。Codex 和 OpenAI 是其各自权利人的商标。
 
+![Codex Pulse 菜单栏运行效果](docs/images/menu-bar-preview.png)
+
 菜单栏常驻显示：
 
 ```text
