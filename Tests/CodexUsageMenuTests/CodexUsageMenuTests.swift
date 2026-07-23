@@ -18,7 +18,7 @@ final class CodexUsageMenuTests: XCTestCase {
     }
 
     func testParsesWeeklyAndShortWindows() throws {
-        let line = #"{"id":2,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":32,"windowDurationMins":10080,"resetsAt":1785289790},"secondary":{"usedPercent":18,"windowDurationMins":300,"resetsAt":1784694000},"planType":"plus"},"rateLimitsByLimitId":null}}"#
+        let line = try fixture("rate-limits-legacy")
 
         let snapshot = try XCTUnwrap(CodexAppServerClient.parseRateLimitResponse(line))
 
@@ -31,7 +31,7 @@ final class CodexUsageMenuTests: XCTestCase {
     }
 
     func testParsesCurrentMultiBucketResponse() throws {
-        let line = #"{"id":2,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":1,"windowDurationMins":10080,"resetsAt":1785289790},"secondary":null,"planType":"plus"},"rateLimitsByLimitId":{"codex":{"limitId":"codex","primary":{"usedPercent":1,"windowDurationMins":10080,"resetsAt":1785289790},"secondary":null,"planType":"plus"}}}}"#
+        let line = try fixture("rate-limits-current")
 
         let snapshot = try XCTUnwrap(CodexAppServerClient.parseRateLimitResponse(line))
 
@@ -41,12 +41,12 @@ final class CodexUsageMenuTests: XCTestCase {
     }
 
     func testIgnoresUnrelatedNotifications() throws {
-        let line = #"{"method":"remoteControl/status/changed","params":{"status":"disabled"}}"#
+        let line = try fixture("unrelated-notification")
         XCTAssertNil(try CodexAppServerClient.parseRateLimitResponse(line))
     }
 
     func testParsesChatGPTAccount() throws {
-        let line = #"{"id":2,"result":{"account":{"type":"chatgpt","email":"allen@example.com","planType":"plus"},"requiresOpenaiAuth":true}}"#
+        let line = try fixture("account-chatgpt")
 
         let account = try XCTUnwrap(CodexAppServerClient.parseAccountResponse(line))
 
@@ -56,13 +56,84 @@ final class CodexUsageMenuTests: XCTestCase {
     }
 
     func testParsesApiKeyAccountWithoutEmail() throws {
-        let line = #"{"id":2,"result":{"account":{"type":"apiKey"},"requiresOpenaiAuth":true}}"#
+        let line = try fixture("account-api-key")
 
         let account = try XCTUnwrap(CodexAppServerClient.parseAccountResponse(line))
 
         XCTAssertNil(account.email)
         XCTAssertNil(account.planType)
         XCTAssertEqual(account.type, "apiKey")
+    }
+
+    func testReportsServerErrorsFromAnyRequestID() throws {
+        let line = try fixture("server-error")
+
+        XCTAssertThrowsError(try CodexAppServerClient.parseRateLimitResponse(line)) { error in
+            guard case CodexClientError.serverError(let message) = error else {
+                return XCTFail("Expected serverError, got \(error)")
+            }
+            XCTAssertEqual(message, "Method not found")
+        }
+    }
+
+    func testRejectsResponseWithoutResult() throws {
+        let line = try fixture("missing-result")
+
+        XCTAssertThrowsError(try CodexAppServerClient.parseRateLimitResponse(line)) { error in
+            guard case CodexClientError.invalidResponse = error else {
+                return XCTFail("Expected invalidResponse, got \(error)")
+            }
+        }
+    }
+
+    func testCoalescesConcurrentRefreshes() async {
+        let client = StubUsageClient(
+            results: [.success(makeSnapshot(remainingPercent: 72))],
+            delay: .milliseconds(100)
+        )
+        let service = await MainActor.run {
+            CodexUsageService(client: client)
+        }
+
+        async let first: Void = service.refresh()
+        async let second: Void = service.refresh()
+        _ = await (first, second)
+
+        XCTAssertEqual(client.fetchCount, 1)
+        let remaining = await MainActor.run {
+            service.snapshot?.weeklyWindow?.remainingPercent
+        }
+        XCTAssertEqual(remaining, 72)
+    }
+
+    func testRefreshFailureKeepsLastSnapshotAndAddsDiagnostics() async {
+        let original = makeSnapshot(remainingPercent: 64)
+        let client = StubUsageClient(
+            results: [
+                .success(original),
+                .failure(StubError.offline)
+            ]
+        )
+        let service = await MainActor.run {
+            CodexUsageService(client: client)
+        }
+
+        await service.refresh()
+        await service.refresh()
+
+        let result = await MainActor.run {
+            (
+                service.snapshot,
+                service.lastFailure,
+                service.menuBarText,
+                service.diagnosticText
+            )
+        }
+
+        XCTAssertEqual(result.0, original)
+        XCTAssertEqual(result.1?.code, "unexpected_error")
+        XCTAssertEqual(result.2, "CodeX｜周 64%")
+        XCTAssertTrue(result.3.contains("认证信息: 未读取、未包含"))
     }
 
     func testRelativeResetFormatting() {
@@ -76,4 +147,78 @@ final class CodexUsageMenuTests: XCTestCase {
             "2小时14分"
         )
     }
+
+    private func fixture(_ name: String) throws -> String {
+        let url = try XCTUnwrap(
+            Bundle.module.url(
+                forResource: name,
+                withExtension: "json",
+                subdirectory: "Fixtures"
+            )
+        )
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    private func makeSnapshot(remainingPercent: Int) -> UsageSnapshot {
+        UsageSnapshot(
+            windows: [
+                UsageWindow(
+                    id: "codex-primary",
+                    usedPercent: 100 - remainingPercent,
+                    durationMinutes: 10_080,
+                    resetsAt: Date(timeIntervalSince1970: 1_800_000_000)
+                )
+            ],
+            planType: "plus",
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+    }
+}
+
+private enum StubError: LocalizedError {
+    case offline
+
+    var errorDescription: String? {
+        "测试连接失败"
+    }
+}
+
+private final class StubUsageClient: CodexUsageClient, @unchecked Sendable {
+    private let queue = DispatchQueue(label: "CodexUsageMenuTests.StubUsageClient")
+    private var results: [Result<UsageSnapshot, Error>]
+    private let delay: Duration
+    private var count = 0
+
+    init(
+        results: [Result<UsageSnapshot, Error>],
+        delay: Duration = .zero
+    ) {
+        self.results = results
+        self.delay = delay
+    }
+
+    var fetchCount: Int {
+        queue.sync { count }
+    }
+
+    func fetchRateLimits() async throws -> UsageSnapshot {
+        let result = queue.sync {
+            count += 1
+            if results.count == 1 {
+                return results[0]
+            }
+            return results.removeFirst()
+        }
+
+        if delay > .zero {
+            try await Task.sleep(for: delay)
+        }
+        return try result.get()
+    }
+
+    func fetchAccount() async throws -> CodexAccount? {
+        nil
+    }
+
+    func shutdown() {}
 }

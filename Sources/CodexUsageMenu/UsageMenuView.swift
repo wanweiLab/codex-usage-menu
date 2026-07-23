@@ -78,6 +78,12 @@ struct UsageMenuView: View {
                         .padding(.horizontal, 18)
                         .padding(.bottom, 17)
                 }
+
+                if let failure = service.lastFailure {
+                    staleDataBanner(failure)
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, 17)
+                }
             }
             .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
         } else {
@@ -104,8 +110,13 @@ struct UsageMenuView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(4)
-                Button("重新读取") {
-                    Task { await service.refresh() }
+                HStack(spacing: 14) {
+                    Button("重新读取") {
+                        Task { await service.refresh() }
+                    }
+                    Button("复制诊断") {
+                        copyDiagnostics()
+                    }
                 }
             case .loaded:
                 Text("暂时没有额度数据")
@@ -134,7 +145,7 @@ struct UsageMenuView: View {
                     .frame(width: 30, height: 30)
             }
             .buttonStyle(.plain)
-            .disabled(service.state == .loading)
+            .disabled(service.isRefreshing)
             .help("刷新额度")
             .accessibilityLabel("刷新额度")
 
@@ -162,6 +173,44 @@ struct UsageMenuView: View {
             return "\(Self.maskedEmail(email)) · \(plan)"
         }
         return "个人账户 · \(plan)"
+    }
+
+    private func staleDataBanner(_ failure: UsageFailure) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("刷新失败，正在显示上次数据")
+                    .font(.system(size: 11, weight: .medium))
+                Text(failure.message)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 4)
+
+            Button {
+                copyDiagnostics()
+            } label: {
+                Image(systemName: "doc.on.doc")
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.plain)
+            .help("复制诊断信息")
+            .accessibilityLabel("复制诊断信息")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 9))
+    }
+
+    private func copyDiagnostics() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(service.diagnosticText, forType: .string)
     }
 
     private static func maskedEmail(_ email: String) -> String {

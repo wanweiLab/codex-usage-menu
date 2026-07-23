@@ -9,7 +9,10 @@ permissions:
 
 jobs:
   test:
-    runs-on: macos-14
+    strategy:
+      matrix:
+        macos: [macos-14, macos-15]
+    runs-on: ${{ matrix.macos }}
     steps:
       - uses: actions/checkout@v4
       - name: Show Swift version

@@ -46,3 +46,9 @@ enum UsageLoadState: Equatable {
     case loaded
     case failed(String)
 }
+
+struct UsageFailure: Equatable {
+    let message: String
+    let code: String
+    let occurredAt: Date
+}

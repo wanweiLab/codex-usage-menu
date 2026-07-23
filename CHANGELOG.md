@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented here.
 
+## 0.3.0 - 2026-07-23
+
+- Keep one serialized Codex App Server connection alive and reconnect once after transport failures.
+- Coalesce overlapping manual and scheduled refreshes.
+- Preserve the last successful usage snapshot and show a stale-data warning after refresh failures.
+- Add copyable, credential-free diagnostics for troubleshooting.
+- Move protocol samples into fixture files and test current, legacy, error, and malformed responses.
+- Run CI on both macOS 14 and macOS 15.
+
 ## 0.2.1 - 2026-07-23
 
 - Fix the macOS app icon by generating every required icon size instead of a cropped single-size asset.

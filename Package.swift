@@ -17,7 +17,10 @@ let package = Package(
         .testTarget(
             name: "CodexUsageMenuTests",
             dependencies: ["CodexUsageMenu"],
-            path: "Tests/CodexUsageMenuTests"
+            path: "Tests/CodexUsageMenuTests",
+            resources: [
+                .copy("Fixtures")
+            ]
         )
     ]
 )

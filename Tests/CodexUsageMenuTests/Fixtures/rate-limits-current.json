@@ -1,0 +1,1 @@
+{"id":3,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":1,"windowDurationMins":10080,"resetsAt":1785289790},"secondary":null,"planType":"plus"},"rateLimitsByLimitId":{"codex":{"limitId":"codex","primary":{"usedPercent":1,"windowDurationMins":10080,"resetsAt":1785289790},"secondary":null,"planType":"plus"}}}}

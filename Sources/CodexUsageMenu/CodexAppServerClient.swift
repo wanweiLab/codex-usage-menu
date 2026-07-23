@@ -5,6 +5,7 @@ enum CodexClientError: LocalizedError {
     case executableNotFound
     case launchFailed(String)
     case timeout
+    case connectionClosed
     case emptyResponse
     case invalidResponse
     case serverError(String)
@@ -17,6 +18,8 @@ enum CodexClientError: LocalizedError {
             return "Codex 启动失败：\(message)"
         case .timeout:
             return "读取额度超时，请稍后重试。"
+        case .connectionClosed:
+            return "Codex 连接已断开，请稍后重试。"
         case .emptyResponse:
             return "Codex 没有返回额度数据。"
         case .invalidResponse:
@@ -25,47 +28,122 @@ enum CodexClientError: LocalizedError {
             return "Codex 返回错误：\(message)"
         }
     }
+
+    var diagnosticCode: String {
+        switch self {
+        case .executableNotFound: "executable_not_found"
+        case .launchFailed: "launch_failed"
+        case .timeout: "timeout"
+        case .connectionClosed: "connection_closed"
+        case .emptyResponse: "empty_response"
+        case .invalidResponse: "invalid_response"
+        case .serverError: "server_error"
+        }
+    }
+
+    var canRetryWithNewConnection: Bool {
+        switch self {
+        case .launchFailed, .timeout, .connectionClosed, .emptyResponse, .invalidResponse:
+            true
+        case .executableNotFound, .serverError:
+            false
+        }
+    }
 }
 
-struct CodexAppServerClient: Sendable {
-    private let timeout: TimeInterval
+protocol CodexUsageClient: Sendable {
+    func fetchRateLimits() async throws -> UsageSnapshot
+    func fetchAccount() async throws -> CodexAccount?
+    func shutdown()
+}
 
-    init(timeout: TimeInterval = 15) {
+private final class CodexAppServerConnection: @unchecked Sendable {
+    private let timeout: TimeInterval
+    private let queue = DispatchQueue(label: "lab.wanwei.codex-pulse.app-server")
+    private let debugEnabled = ProcessInfo.processInfo.environment["CODEX_USAGE_DEBUG"] == "1"
+
+    private var process: Process?
+    private var inputPipe: Pipe?
+    private var outputPipe: Pipe?
+    private var errorPipe: Pipe?
+    private var bufferedData = Data()
+    private var stderrTail = Data()
+    private var nextRequestID = 2
+
+    init(timeout: TimeInterval) {
         self.timeout = timeout
     }
 
-    func fetchRateLimits() async throws -> UsageSnapshot {
-        try await Task.detached(priority: .utility) {
-            try fetchRateLimitsBlocking()
-        }.value
-    }
-
-    func fetchAccount() async throws -> CodexAccount? {
-        try await Task.detached(priority: .utility) {
-            try fetchAccountBlocking()
-        }.value
-    }
-
-    private func fetchRateLimitsBlocking() throws -> UsageSnapshot {
-        let line = try performRequestBlocking(
-            method: "account/rateLimits/read",
-            paramsJSON: "null"
-        )
-        guard let snapshot = try Self.parseRateLimitResponse(line) else {
-            throw CodexClientError.invalidResponse
+    func request(method: String, paramsJSON: String) async throws -> String {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async { [self] in
+                do {
+                    continuation.resume(
+                        returning: try requestWithReconnect(
+                            method: method,
+                            paramsJSON: paramsJSON
+                        )
+                    )
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
         }
-        return snapshot
     }
 
-    private func fetchAccountBlocking() throws -> CodexAccount? {
-        let line = try performRequestBlocking(
-            method: "account/read",
-            paramsJSON: #"{"refreshToken":false}"#
-        )
-        return try Self.parseAccountResponse(line)
+    func shutdown() {
+        queue.async { [self] in
+            stopProcess()
+        }
     }
 
-    private func performRequestBlocking(method: String, paramsJSON: String) throws -> String {
+    private func requestWithReconnect(method: String, paramsJSON: String) throws -> String {
+        for attempt in 0...1 {
+            do {
+                return try performRequest(method: method, paramsJSON: paramsJSON)
+            } catch let error as CodexClientError
+                where attempt == 0 && error.canRetryWithNewConnection {
+                debugLog("request \(method) failed (\(error.diagnosticCode)); reconnecting")
+                stopProcess()
+            }
+        }
+
+        throw CodexClientError.emptyResponse
+    }
+
+    private func performRequest(method: String, paramsJSON: String) throws -> String {
+        try ensureStarted()
+
+        guard let inputPipe else {
+            throw CodexClientError.connectionClosed
+        }
+
+        let requestID = nextRequestID
+        nextRequestID += 1
+        let request = #"{"method":"\#(method)","id":\#(requestID),"params":\#(paramsJSON)}"#
+
+        do {
+            guard let data = "\(request)\n".data(using: .utf8) else {
+                throw CodexClientError.invalidResponse
+            }
+            try inputPipe.fileHandleForWriting.write(contentsOf: data)
+            debugLog("sent \(method) id=\(requestID)")
+        } catch let error as CodexClientError {
+            throw error
+        } catch {
+            throw CodexClientError.launchFailed(error.localizedDescription)
+        }
+
+        return try readResponse(requestID: requestID)
+    }
+
+    private func ensureStarted() throws {
+        if process?.isRunning == true {
+            return
+        }
+
+        stopProcess()
+
         guard let executableURL = CodexExecutableLocator.locate() else {
             throw CodexClientError.executableNotFound
         }
@@ -81,39 +159,50 @@ struct CodexAppServerClient: Sendable {
         process.standardOutput = outputPipe
         process.standardError = errorPipe
 
-        let debugEnabled = ProcessInfo.processInfo.environment["CODEX_USAGE_DEBUG"] == "1"
-
         do {
             try process.run()
         } catch {
             throw CodexClientError.launchFailed(error.localizedDescription)
         }
 
-        let messages = [
-            #"{"method":"initialize","id":1,"params":{"clientInfo":{"name":"wanwei_codex_pulse","title":"Codex Pulse","version":"0.2.1"}}}"#,
-            #"{"method":"initialized","params":{}}"#,
-            #"{"method":"\#(method)","id":2,"params":\#(paramsJSON)}"#
+        self.process = process
+        self.inputPipe = inputPipe
+        self.outputPipe = outputPipe
+        self.errorPipe = errorPipe
+        bufferedData.removeAll(keepingCapacity: true)
+        stderrTail.removeAll(keepingCapacity: true)
+        nextRequestID = 2
+
+        errorPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let data = handle.availableData
+            guard !data.isEmpty else { return }
+            self?.queue.async { [weak self] in
+                self?.appendStderr(data)
+            }
+        }
+
+        let initializationMessages = [
+            #"{"method":"initialize","id":1,"params":{"clientInfo":{"name":"wanwei_codex_pulse","title":"Codex Pulse","version":"0.3.0"}}}"#,
+            #"{"method":"initialized","params":{}}"#
         ]
 
         do {
-            for message in messages {
-                guard let data = "\(message)\n".data(using: .utf8) else { continue }
+            for message in initializationMessages {
+                guard let data = "\(message)\n".data(using: .utf8) else {
+                    continue
+                }
                 try inputPipe.fileHandleForWriting.write(contentsOf: data)
             }
-            if debugEnabled {
-                Self.debugLog("sent \(method)")
-            }
+            debugLog("started persistent app-server")
         } catch {
-            process.terminate()
+            stopProcess()
             throw CodexClientError.launchFailed(error.localizedDescription)
         }
+    }
 
-        func stopProcess() {
-            try? inputPipe.fileHandleForWriting.close()
-            if process.isRunning {
-                process.terminate()
-            }
-            process.waitUntilExit()
+    private func readResponse(requestID: Int) throws -> String {
+        guard let outputPipe else {
+            throw CodexClientError.connectionClosed
         }
 
         let outputHandle = outputPipe.fileHandleForReading
@@ -122,10 +211,20 @@ struct CodexAppServerClient: Sendable {
             events: Int16(POLLIN | POLLHUP | POLLERR),
             revents: 0
         )
-        var bufferedData = Data()
         let deadline = Date().addingTimeInterval(timeout)
 
-        while process.isRunning, deadline.timeIntervalSinceNow > 0 {
+        while deadline.timeIntervalSinceNow > 0 {
+            while let line = popBufferedLine() {
+                if try isMatchingResponse(line, requestID: requestID) {
+                    debugLog("received response id=\(requestID)")
+                    return line
+                }
+            }
+
+            guard process?.isRunning == true else {
+                throw CodexClientError.connectionClosed
+            }
+
             descriptor.revents = 0
             let remainingMilliseconds = max(
                 1,
@@ -134,76 +233,55 @@ struct CodexAppServerClient: Sendable {
             let pollResult = Darwin.poll(&descriptor, 1, remainingMilliseconds)
 
             if pollResult < 0 {
-                if errno == EINTR { continue }
-                let message = String(cString: strerror(errno))
-                stopProcess()
-                throw CodexClientError.launchFailed(message)
+                if errno == EINTR {
+                    continue
+                }
+                throw CodexClientError.launchFailed(String(cString: strerror(errno)))
             }
-            if pollResult == 0 { break }
+            if pollResult == 0 {
+                break
+            }
 
             let hasReadableData = descriptor.revents & Int16(POLLIN) != 0
             let streamClosed = descriptor.revents & Int16(POLLHUP | POLLERR) != 0
-            guard hasReadableData || streamClosed else { continue }
+            guard hasReadableData || streamClosed else {
+                continue
+            }
 
             let data = outputHandle.availableData
             if !data.isEmpty {
                 bufferedData.append(data)
             }
-
-            while let newlineIndex = bufferedData.firstIndex(of: 0x0A) {
-                let lineData = bufferedData.prefix(upTo: newlineIndex)
-                bufferedData.removeSubrange(...newlineIndex)
-                guard let line = String(data: lineData, encoding: .utf8), !line.isEmpty else {
-                    continue
-                }
-
-                if debugEnabled {
-                    Self.debugLog("received JSON line (\(lineData.count) bytes)")
-                }
-
-                do {
-                    if try Self.isRequestedResponse(line) {
-                        stopProcess()
-                        return line
-                    }
-                } catch {
-                    stopProcess()
-                    throw error
-                }
+            if data.isEmpty, streamClosed {
+                throw CodexClientError.connectionClosed
             }
-
-            if data.isEmpty, streamClosed { break }
         }
 
-        stopProcess()
-        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        let stderrText = String(data: errorData, encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-
-        if deadline.timeIntervalSinceNow <= 0 {
-            if debugEnabled {
-                Self.debugLog("timed out; stdout buffered=\(bufferedData.count) bytes; stderr=\(stderrText)")
-            }
-            throw CodexClientError.timeout
-        }
-        if !stderrText.isEmpty {
-            throw CodexClientError.launchFailed(stderrText)
-        }
-        throw CodexClientError.emptyResponse
+        throw CodexClientError.timeout
     }
 
-    private static func debugLog(_ message: String) {
-        guard let data = "[CodexUsage] \(message)\n".data(using: .utf8) else { return }
-        try? FileHandle.standardError.write(contentsOf: data)
-    }
-
-    private static func isRequestedResponse(_ line: String) throws -> Bool {
-        guard let data = line.data(using: .utf8),
-              let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw CodexClientError.invalidResponse
+    private func popBufferedLine() -> String? {
+        guard let newlineIndex = bufferedData.firstIndex(of: 0x0A) else {
+            return nil
         }
 
-        guard let responseID = root["id"] as? Int, responseID == 2 else {
+        let lineData = bufferedData.prefix(upTo: newlineIndex)
+        bufferedData.removeSubrange(...newlineIndex)
+        guard !lineData.isEmpty else {
+            return ""
+        }
+        return String(data: lineData, encoding: .utf8)
+    }
+
+    private func isMatchingResponse(_ line: String, requestID: Int) throws -> Bool {
+        guard !line.isEmpty,
+              let data = line.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            debugLog("ignored non-JSON app-server output")
+            return false
+        }
+
+        guard let responseID = root["id"] as? Int, responseID == requestID else {
             return false
         }
 
@@ -214,13 +292,92 @@ struct CodexAppServerClient: Sendable {
         return true
     }
 
+    private func stopProcess() {
+        guard process != nil || inputPipe != nil || outputPipe != nil || errorPipe != nil else {
+            return
+        }
+
+        try? inputPipe?.fileHandleForWriting.close()
+        if process?.isRunning == true {
+            process?.terminate()
+        }
+        process?.waitUntilExit()
+        errorPipe?.fileHandleForReading.readabilityHandler = nil
+        try? outputPipe?.fileHandleForReading.close()
+        try? errorPipe?.fileHandleForReading.close()
+
+        process = nil
+        inputPipe = nil
+        outputPipe = nil
+        errorPipe = nil
+        bufferedData.removeAll(keepingCapacity: false)
+    }
+
+    private func appendStderr(_ data: Data) {
+        stderrTail.append(data)
+        let maximumTailBytes = 4_096
+        if stderrTail.count > maximumTailBytes {
+            stderrTail.removeFirst(stderrTail.count - maximumTailBytes)
+        }
+    }
+
+    private func debugLog(_ message: String) {
+        guard debugEnabled,
+              let data = "[CodexPulse] \(message)\n".data(using: .utf8) else {
+            return
+        }
+        try? FileHandle.standardError.write(contentsOf: data)
+    }
+}
+
+struct CodexAppServerClient: CodexUsageClient, Sendable {
+    private let connection: CodexAppServerConnection
+
+    init(timeout: TimeInterval = 15) {
+        connection = CodexAppServerConnection(timeout: timeout)
+    }
+
+    func fetchRateLimits() async throws -> UsageSnapshot {
+        let line = try await connection.request(
+            method: "account/rateLimits/read",
+            paramsJSON: "null"
+        )
+        guard let snapshot = try Self.parseRateLimitResponse(line) else {
+            throw CodexClientError.invalidResponse
+        }
+        return snapshot
+    }
+
+    func fetchAccount() async throws -> CodexAccount? {
+        let line = try await connection.request(
+            method: "account/read",
+            paramsJSON: #"{"refreshToken":false}"#
+        )
+        return try Self.parseAccountResponse(line)
+    }
+
+    func shutdown() {
+        connection.shutdown()
+    }
+
+    static var executableDisplayPath: String? {
+        guard let path = CodexExecutableLocator.locate()?.path else {
+            return nil
+        }
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        if path.hasPrefix(home + "/") {
+            return "~" + path.dropFirst(home.count)
+        }
+        return path
+    }
+
     static func parseRateLimitResponse(_ line: String) throws -> UsageSnapshot? {
         guard let data = line.data(using: .utf8),
               let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw CodexClientError.invalidResponse
         }
 
-        if let responseID = root["id"] as? Int, responseID == 2 {
+        if root["id"] is Int {
             if let error = root["error"] as? [String: Any] {
                 let message = error["message"] as? String ?? "未知错误"
                 throw CodexClientError.serverError(message)
@@ -241,7 +398,7 @@ struct CodexAppServerClient: Sendable {
             throw CodexClientError.invalidResponse
         }
 
-        guard let responseID = root["id"] as? Int, responseID == 2 else {
+        guard root["id"] is Int else {
             return nil
         }
 
