@@ -38,21 +38,12 @@ struct UsageMenuView: View {
 
     private var header: some View {
         HStack(spacing: 11) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [CodexTheme.accentLight, CodexTheme.accent],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                Image(systemName: "chevron.left.forwardslash.chevron.right")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.white)
-            }
-            .frame(width: 32, height: 32)
-            .accessibilityHidden(true)
+            Image(nsImage: NSApplication.shared.applicationIconImage)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 36, height: 36)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Codex Pulse")

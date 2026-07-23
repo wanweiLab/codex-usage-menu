@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented here.
 
+## 0.3.3 - 2026-07-23
+
+- Use the Codex Pulse app logo in the menu header instead of the generic code symbol.
+
 ## 0.3.2 - 2026-07-23
 
 - Enforce the eight-character menu-bar prefix limit directly in the text field.
