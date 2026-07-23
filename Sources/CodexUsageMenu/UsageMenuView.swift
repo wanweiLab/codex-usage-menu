@@ -5,6 +5,7 @@ struct UsageMenuView: View {
     @ObservedObject var service: CodexUsageService
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isShowingPreferences = false
+    @State private var menuBarPrefixDraft = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -198,15 +199,18 @@ struct UsageMenuView: View {
                 HStack {
                     TextField(
                         "例如 CodeX",
-                        text: Binding(
-                            get: { service.menuBarPrefix },
-                            set: { service.updateMenuBarPrefix($0) }
-                        )
+                        text: $menuBarPrefixDraft
                     )
                     .textFieldStyle(.roundedBorder)
+                    .onChange(of: menuBarPrefixDraft) { newValue in
+                        let limitedValue = service.updateMenuBarPrefix(newValue)
+                        if limitedValue != newValue {
+                            menuBarPrefixDraft = limitedValue
+                        }
+                    }
 
                     Text(
-                        "\(service.menuBarPrefix.count)/\(CodexUsageService.maximumMenuBarPrefixLength)"
+                        "\(menuBarPrefixDraft.count)/\(CodexUsageService.maximumMenuBarPrefixLength)"
                     )
                     .font(.system(size: 10.5))
                     .foregroundStyle(.secondary)
@@ -232,6 +236,7 @@ struct UsageMenuView: View {
             HStack {
                 Button("恢复默认") {
                     service.resetMenuBarPrefix()
+                    menuBarPrefixDraft = service.menuBarPrefix
                 }
                 .disabled(service.menuBarPrefix == CodexUsageService.defaultMenuBarPrefix)
 
@@ -248,6 +253,9 @@ struct UsageMenuView: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 18)
         .frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
+        .onAppear {
+            menuBarPrefixDraft = service.menuBarPrefix
+        }
     }
 
     private var planLabel: String {

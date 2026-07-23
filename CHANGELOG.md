@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented here.
 
+## 0.3.2 - 2026-07-23
+
+- Enforce the eight-character menu-bar prefix limit directly in the text field.
+
 ## 0.3.1 - 2026-07-23
 
 - Add a locally persisted menu-bar prefix setting with live preview, blank mode, and reset to default.

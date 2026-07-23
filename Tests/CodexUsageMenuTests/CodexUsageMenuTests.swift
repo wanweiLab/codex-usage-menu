@@ -150,7 +150,7 @@ final class CodexUsageMenuTests: XCTestCase {
         let initialText = await MainActor.run { service.menuBarText }
         XCTAssertEqual(initialText, "CodeX｜周 --")
 
-        await MainActor.run {
+        _ = await MainActor.run {
             service.updateMenuBarPrefix("万维 Lab")
         }
         let customText = await MainActor.run { service.menuBarText }
@@ -165,7 +165,7 @@ final class CodexUsageMenuTests: XCTestCase {
         let restoredText = await MainActor.run { restoredService.menuBarText }
         XCTAssertEqual(restoredText, "万维 Lab｜周 --")
 
-        await MainActor.run {
+        _ = await MainActor.run {
             restoredService.updateMenuBarPrefix("   ")
         }
         let blankText = await MainActor.run { restoredService.menuBarText }
@@ -182,13 +182,14 @@ final class CodexUsageMenuTests: XCTestCase {
             )
         }
 
-        await MainActor.run {
+        let limitedValue = await MainActor.run {
             service.updateMenuBarPrefix(" 1234\n567890 ")
         }
 
         let result = await MainActor.run {
             (service.menuBarPrefix, service.menuBarText)
         }
+        XCTAssertEqual(limitedValue, "1234 567")
         XCTAssertEqual(result.0, "1234 567")
         XCTAssertEqual(result.1, "1234 567｜周 --")
     }

@@ -100,11 +100,14 @@ final class CodexUsageService: ObservableObject {
         }
     }
 
-    func updateMenuBarPrefix(_ value: String) {
+    @discardableResult
+    func updateMenuBarPrefix(_ value: String) -> String {
         let sanitized = Self.sanitizedMenuBarPrefix(value)
-        guard sanitized != menuBarPrefix else { return }
-        menuBarPrefix = sanitized
-        defaults.set(sanitized, forKey: Self.menuBarPrefixDefaultsKey)
+        if sanitized != menuBarPrefix {
+            menuBarPrefix = sanitized
+            defaults.set(sanitized, forKey: Self.menuBarPrefixDefaultsKey)
+        }
+        return sanitized
     }
 
     func resetMenuBarPrefix() {
