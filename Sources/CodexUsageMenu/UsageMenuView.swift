@@ -130,161 +130,167 @@ struct UsageMenuView: View {
     }
 
     private var footer: some View {
-        HStack {
-            Text(isShowingPreferences ? "本机设置" : lastUpdatedText)
-                .font(.system(size: 10.5))
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
+        Group {
+            if isShowingPreferences {
+                HStack {
+                    Button("恢复默认") {
+                        service.resetMenuBarPrefix()
+                        menuBarPrefixDraft = service.menuBarPrefix
+                    }
+                    .disabled(service.menuBarPrefix == CodexUsageService.defaultMenuBarPrefix)
 
-            Spacer()
+                    Spacer()
 
-            Button {
-                withAnimation(.easeInOut(duration: reduceMotion ? 0 : 0.18)) {
-                    isShowingPreferences.toggle()
+                    Button("完成") {
+                        withAnimation(.easeInOut(duration: reduceMotion ? 0 : 0.18)) {
+                            isShowingPreferences = false
+                        }
+                    }
+                    .keyboardShortcut(.defaultAction)
                 }
-            } label: {
-                Image(systemName: isShowingPreferences ? "gearshape.fill" : "gearshape")
-                    .frame(width: 30, height: 30)
-            }
-            .buttonStyle(.plain)
-            .help(isShowingPreferences ? "返回额度" : "显示设置")
-            .accessibilityLabel(isShowingPreferences ? "返回额度" : "打开显示设置")
+                .padding(.horizontal, 18)
+            } else {
+                HStack {
+                    Text(lastUpdatedText)
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
 
-            Button {
-                Task { await service.refresh() }
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .frame(width: 30, height: 30)
-            }
-            .buttonStyle(.plain)
-            .disabled(service.isRefreshing || isShowingPreferences)
-            .opacity(isShowingPreferences ? 0.35 : 1)
-            .help("刷新额度")
-            .accessibilityLabel("刷新额度")
+                    Spacer()
 
-            Button {
-                NSApplication.shared.terminate(nil)
-            } label: {
-                Image(systemName: "power")
-                    .frame(width: 30, height: 30)
+                    Button {
+                        withAnimation(.easeInOut(duration: reduceMotion ? 0 : 0.18)) {
+                            isShowingPreferences = true
+                        }
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .frame(width: 30, height: 30)
+                    }
+                    .buttonStyle(.plain)
+                    .help("显示设置")
+                    .accessibilityLabel("打开显示设置")
+
+                    Button {
+                        Task { await service.refresh() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .frame(width: 30, height: 30)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(service.isRefreshing)
+                    .help("刷新额度")
+                    .accessibilityLabel("刷新额度")
+
+                    Button {
+                        NSApplication.shared.terminate(nil)
+                    } label: {
+                        Image(systemName: "power")
+                            .frame(width: 30, height: 30)
+                    }
+                    .buttonStyle(.plain)
+                    .help("退出 Codex Pulse")
+                    .accessibilityLabel("退出 Codex Pulse")
+                }
+                .padding(.horizontal, 14)
             }
-            .buttonStyle(.plain)
-            .help("退出 Codex Pulse")
-            .accessibilityLabel("退出 Codex Pulse")
         }
-        .padding(.horizontal, 14)
         .frame(height: 54)
         .background(Color(nsColor: .windowBackgroundColor).opacity(0.45))
     }
 
     private var preferences: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text("状态栏显示")
-                    .font(.system(size: 13, weight: .semibold))
-                Text("自定义周额度前面的文字，留空则只显示额度。")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-
-            VStack(alignment: .leading, spacing: 7) {
-                HStack {
-                    TextField(
-                        "例如 CodeX",
-                        text: $menuBarPrefixDraft
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .onChange(of: menuBarPrefixDraft) { newValue in
-                        let limitedValue = service.updateMenuBarPrefix(newValue)
-                        if limitedValue != newValue {
-                            menuBarPrefixDraft = limitedValue
-                        }
-                    }
-
-                    Text(
-                        "\(menuBarPrefixDraft.count)/\(CodexUsageService.maximumMenuBarPrefixLength)"
-                    )
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                    .frame(width: 30, alignment: .trailing)
-                }
-
-                HStack(spacing: 4) {
-                    Image(systemName: "chart.donut")
-                    Text(service.menuBarText)
-                        .monospacedDigit()
-                }
-                .font(.system(size: 12, weight: .medium))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(
-                    Color(nsColor: .controlBackgroundColor),
-                    in: RoundedRectangle(cornerRadius: 7, style: .continuous)
-                )
-                .accessibilityLabel("状态栏预览：\(service.menuBarText)")
-            }
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 12) {
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("健康提醒")
+                    Text("状态栏显示")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("屏幕中央置顶弹窗，60 秒后自动关闭。")
+                    Text("自定义周额度前面的文字，留空则只显示额度。")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
 
-                ReminderSettingRow(
-                    kind: .sedentary,
-                    configuration: reminderService.configuration(for: .sedentary),
-                    setEnabled: { isEnabled in
-                        reminderService.setEnabled(isEnabled, for: .sedentary)
-                    },
-                    setInterval: { interval in
-                        reminderService.updateInterval(interval, for: .sedentary)
-                    },
-                    preview: {
-                        reminderService.preview(.sedentary)
-                    }
-                )
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack {
+                        TextField(
+                            "例如 CodeX",
+                            text: $menuBarPrefixDraft
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: menuBarPrefixDraft) { newValue in
+                            let limitedValue = service.updateMenuBarPrefix(newValue)
+                            if limitedValue != newValue {
+                                menuBarPrefixDraft = limitedValue
+                            }
+                        }
 
-                ReminderSettingRow(
-                    kind: .hydration,
-                    configuration: reminderService.configuration(for: .hydration),
-                    setEnabled: { isEnabled in
-                        reminderService.setEnabled(isEnabled, for: .hydration)
-                    },
-                    setInterval: { interval in
-                        reminderService.updateInterval(interval, for: .hydration)
-                    },
-                    preview: {
-                        reminderService.preview(.hydration)
+                        Text(
+                            "\(menuBarPrefixDraft.count)/\(CodexUsageService.maximumMenuBarPrefixLength)"
+                        )
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                        .frame(width: 30, alignment: .trailing)
                     }
-                )
-            }
 
-            HStack {
-                Button("恢复默认") {
-                    service.resetMenuBarPrefix()
-                    menuBarPrefixDraft = service.menuBarPrefix
+                    HStack(spacing: 4) {
+                        Image(systemName: "chart.donut")
+                        Text(service.menuBarText)
+                            .monospacedDigit()
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(
+                        Color(nsColor: .controlBackgroundColor),
+                        in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    )
+                    .accessibilityLabel("状态栏预览：\(service.menuBarText)")
                 }
-                .disabled(service.menuBarPrefix == CodexUsageService.defaultMenuBarPrefix)
 
-                Spacer()
+                Divider()
 
-                Button("完成") {
-                    withAnimation(.easeInOut(duration: reduceMotion ? 0 : 0.18)) {
-                        isShowingPreferences = false
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("健康提醒")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("屏幕中央置顶弹窗，60 秒后自动关闭。")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
                     }
+
+                    ReminderSettingRow(
+                        kind: .sedentary,
+                        configuration: reminderService.configuration(for: .sedentary),
+                        setEnabled: { isEnabled in
+                            reminderService.setEnabled(isEnabled, for: .sedentary)
+                        },
+                        setInterval: { interval in
+                            reminderService.updateInterval(interval, for: .sedentary)
+                        },
+                        preview: {
+                            reminderService.preview(.sedentary)
+                        }
+                    )
+
+                    ReminderSettingRow(
+                        kind: .hydration,
+                        configuration: reminderService.configuration(for: .hydration),
+                        setEnabled: { isEnabled in
+                            reminderService.setEnabled(isEnabled, for: .hydration)
+                        },
+                        setInterval: { interval in
+                            reminderService.updateInterval(interval, for: .hydration)
+                        },
+                        preview: {
+                            reminderService.preview(.hydration)
+                        }
+                    )
                 }
-                .keyboardShortcut(.defaultAction)
             }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 18)
-        .frame(maxWidth: .infinity, minHeight: 380, alignment: .topLeading)
+        .frame(height: 354)
         .onAppear {
             menuBarPrefixDraft = service.menuBarPrefix
         }
@@ -362,18 +368,25 @@ private struct ReminderSettingRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Toggle(
-                isOn: Binding(
-                    get: { configuration.isEnabled },
-                    set: { isEnabled in setEnabled(isEnabled) }
-                )
-            ) {
+            HStack(spacing: 8) {
                 Label(kind.title, systemImage: kind.systemImage)
                     .font(.system(size: 12, weight: .medium))
+
+                Spacer()
+
+                Toggle(
+                    "",
+                    isOn: Binding(
+                        get: { configuration.isEnabled },
+                        set: { isEnabled in setEnabled(isEnabled) }
+                    )
+                )
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .accessibilityLabel(kind.title)
+                .accessibilityHint("开启后按设置的分钟数重复提醒")
             }
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .accessibilityHint("开启后按设置的分钟数重复提醒")
 
             HStack(spacing: 6) {
                 Text("每")
@@ -395,18 +408,6 @@ private struct ReminderSettingRow: View {
                 Text("分钟提醒")
 
                 Spacer()
-
-                Stepper(
-                    "",
-                    value: Binding(
-                        get: { configuration.intervalMinutes },
-                        set: { setInterval($0) }
-                    ),
-                    in: ReminderService.minimumIntervalMinutes...ReminderService.maximumIntervalMinutes
-                )
-                .labelsHidden()
-                .controlSize(.small)
-                .accessibilityLabel("调整\(kind.title)间隔")
 
                 Button("测试") {
                     preview()

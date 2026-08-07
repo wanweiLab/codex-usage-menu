@@ -182,7 +182,7 @@ private final class CodexAppServerConnection: @unchecked Sendable {
         }
 
         let initializationMessages = [
-            #"{"method":"initialize","id":1,"params":{"clientInfo":{"name":"wanwei_codex_pulse","title":"Codex Pulse","version":"0.4.0"}}}"#,
+            #"{"method":"initialize","id":1,"params":{"clientInfo":{"name":"wanwei_codex_pulse","title":"Codex Pulse","version":"0.4.1"}}}"#,
             #"{"method":"initialized","params":{}}"#
         ]
 

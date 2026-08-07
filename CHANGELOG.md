@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented here.
 
+## 0.4.1 - 2026-08-07
+
+- Fix the settings panel overflowing into its footer on shorter displays.
+- Keep settings actions in a fixed footer while the settings content scrolls independently.
+- Align reminder controls and simplify each reminder row for a cleaner compact layout.
+
 ## 0.4.0 - 2026-08-07
 
 - Add independently configurable sedentary and hydration reminders with 1–720 minute intervals.
