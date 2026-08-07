@@ -139,10 +139,6 @@ final class ReminderService: ObservableObject {
         }
     }
 
-    func preview(_ kind: ReminderKind) {
-        presenter.present(kind)
-    }
-
     private func schedule(for kind: ReminderKind) {
         reminderTasks[kind]?.cancel()
         reminderTasks[kind] = Task { [weak self] in

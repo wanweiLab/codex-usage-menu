@@ -266,9 +266,6 @@ struct UsageMenuView: View {
                         },
                         setInterval: { interval in
                             reminderService.updateInterval(interval, for: .sedentary)
-                        },
-                        preview: {
-                            reminderService.preview(.sedentary)
                         }
                     )
 
@@ -280,9 +277,6 @@ struct UsageMenuView: View {
                         },
                         setInterval: { interval in
                             reminderService.updateInterval(interval, for: .hydration)
-                        },
-                        preview: {
-                            reminderService.preview(.hydration)
                         }
                     )
                 }
@@ -364,7 +358,6 @@ private struct ReminderSettingRow: View {
     let configuration: ReminderConfiguration
     let setEnabled: (Bool) -> Void
     let setInterval: (Int) -> Void
-    let preview: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -406,14 +399,6 @@ private struct ReminderSettingRow: View {
                 .accessibilityLabel("\(kind.title)间隔分钟数")
 
                 Text("分钟提醒")
-
-                Spacer()
-
-                Button("测试") {
-                    preview()
-                }
-                .controlSize(.small)
-                .accessibilityLabel("测试\(kind.title)弹窗")
             }
             .font(.system(size: 11))
         }

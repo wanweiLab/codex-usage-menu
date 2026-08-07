@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented here.
 
+## 0.4.5 - 2026-08-07
+
+- Replace the fully transparent reminder overlay with an ultra-thin frosted glass surface.
+- Restore a subtle border and window shadow while keeping the popup translucent.
+- Remove reminder preview buttons from settings for the release build.
+
 ## 0.4.3 - 2026-08-07
 
 - Remove the bottom close button from reminder popups.

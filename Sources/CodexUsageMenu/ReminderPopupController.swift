@@ -42,7 +42,7 @@ final class ReminderPopupController: ReminderPresenting {
         panel.hidesOnDeactivate = false
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = false
+        panel.hasShadow = true
         panel.becomesKeyOnlyIfNeeded = true
         panel.contentView = NSHostingView(rootView: ReminderPopupView(model: model))
         panel.setFrameOrigin(Self.popupOrigin(for: size))
@@ -162,7 +162,12 @@ private struct ReminderPopupView: View {
             .accessibilityLabel("关闭提醒")
         }
         .frame(width: 360, height: 360)
-        .background(Color.clear)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        }
         .accessibilityElement(children: .contain)
     }
 
