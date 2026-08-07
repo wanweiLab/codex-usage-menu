@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented here.
 
+## 0.4.2 - 2026-08-07
+
+- Redesign reminder popups as centered square cards.
+- Replace the horizontal progress bar with a prominent circular 60-second countdown.
+
 ## 0.4.1 - 2026-08-07
 
 - Fix the settings panel overflowing into its footer on shorter displays.

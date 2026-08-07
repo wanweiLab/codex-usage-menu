@@ -29,7 +29,7 @@ final class ReminderPopupController: ReminderPresenting {
             self?.dismissCurrentPopup()
         }
 
-        let size = NSSize(width: 460, height: 220)
+        let size = NSSize(width: 360, height: 360)
         let panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -115,75 +115,102 @@ private final class ReminderPopupModel: ObservableObject {
 
 private struct ReminderPopupView: View {
     @ObservedObject var model: ReminderPopupModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack(alignment: .top, spacing: 16) {
+        ZStack(alignment: .topTrailing) {
+            VStack(spacing: 0) {
                 ZStack {
                     Circle()
                         .fill(CodexTheme.accent.opacity(0.12))
                     Image(systemName: model.kind.systemImage)
-                        .font(.system(size: 25, weight: .semibold))
+                        .font(.system(size: 27, weight: .semibold))
                         .foregroundStyle(CodexTheme.accent)
                 }
-                .frame(width: 56, height: 56)
+                .frame(width: 68, height: 68)
                 .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 7) {
-                    Text(model.kind.popupTitle)
-                        .font(.system(size: 18, weight: .semibold))
-                    Text(model.kind.popupBody)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                Text(model.kind.popupTitle)
+                    .font(.system(size: 21, weight: .semibold))
+                    .padding(.top, 13)
 
-                Spacer(minLength: 8)
-
-                Button {
-                    model.close()
-                } label: {
-                    Image(systemName: "xmark")
-                        .frame(width: 32, height: 32)
-                }
-                .buttonStyle(.plain)
-                .help("关闭提醒")
-                .accessibilityLabel("关闭提醒")
-            }
-
-            HStack(alignment: .bottom, spacing: 14) {
-                VStack(alignment: .leading, spacing: 7) {
-                    Text("60 秒后自动关闭")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-
-                    ProgressView(value: Double(60 - model.remainingSeconds), total: 60)
-                        .progressViewStyle(.linear)
-                        .tint(CodexTheme.accent)
-                        .accessibilityLabel("自动关闭倒计时")
-                        .accessibilityValue("还剩 \(model.remainingSeconds) 秒")
-                }
-
-                Text("\(model.remainingSeconds) 秒")
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                Text(model.kind.popupBody)
+                    .font(.system(size: 12.5))
                     .foregroundStyle(.secondary)
-                    .frame(width: 42, alignment: .trailing)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: 270)
+                    .padding(.top, 5)
+
+                countdownRing
+                    .padding(.top, 15)
 
                 Button("关闭") {
                     model.close()
                 }
                 .controlSize(.regular)
                 .keyboardShortcut(.cancelAction)
+                .frame(minWidth: 88)
+                .padding(.top, 13)
             }
+            .padding(.horizontal, 28)
+            .padding(.top, 25)
+            .padding(.bottom, 22)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Button {
+                model.close()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(12)
+            .help("关闭提醒")
+            .accessibilityLabel("关闭提醒")
         }
-        .padding(24)
-        .frame(width: 460, height: 220)
+        .frame(width: 360, height: 360)
         .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(Color.primary.opacity(0.1), lineWidth: 1)
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private var countdownRing: some View {
+        ZStack {
+            Circle()
+                .stroke(CodexTheme.accent.opacity(0.13), lineWidth: 8)
+
+            Circle()
+                .trim(from: 0, to: Double(model.remainingSeconds) / 60)
+                .stroke(
+                    CodexTheme.accent,
+                    style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .animation(
+                    reduceMotion ? nil : .linear(duration: 0.25),
+                    value: model.remainingSeconds
+                )
+
+            VStack(spacing: 0) {
+                Text("\(model.remainingSeconds)")
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+
+                Text("秒后关闭")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: 102, height: 102)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("自动关闭倒计时")
+        .accessibilityValue("还剩 \(model.remainingSeconds) 秒")
     }
 }
