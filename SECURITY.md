@@ -11,6 +11,8 @@ The Codex child process uses its existing login. This app does not read, copy, t
 
 The optional menu-bar prefix is stored only in the current user's macOS `UserDefaults`. It is never sent to Codex, OpenAI, or any third party.
 
+Sedentary and hydration reminder settings are also stored only in `UserDefaults`. Reminder timing and popup presentation run entirely inside the local app, do not use the network, and do not request macOS notification permission.
+
 The installer builds from the checked-out Swift source, ad-hoc signs the local app bundle, installs it in `~/Applications`, and does not use `sudo`.
 
 ## Reporting a vulnerability

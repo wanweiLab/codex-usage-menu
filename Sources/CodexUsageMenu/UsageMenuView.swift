@@ -3,6 +3,7 @@ import SwiftUI
 
 struct UsageMenuView: View {
     @ObservedObject var service: CodexUsageService
+    @ObservedObject var reminderService: ReminderService
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isShowingPreferences = false
     @State private var menuBarPrefixDraft = ""
@@ -177,7 +178,7 @@ struct UsageMenuView: View {
     }
 
     private var preferences: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 5) {
                 Text("状态栏显示")
                     .font(.system(size: 13, weight: .semibold))
@@ -224,6 +225,46 @@ struct UsageMenuView: View {
                 .accessibilityLabel("状态栏预览：\(service.menuBarText)")
             }
 
+            Divider()
+
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("健康提醒")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("屏幕中央置顶弹窗，60 秒后自动关闭。")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                ReminderSettingRow(
+                    kind: .sedentary,
+                    configuration: reminderService.configuration(for: .sedentary),
+                    setEnabled: { isEnabled in
+                        reminderService.setEnabled(isEnabled, for: .sedentary)
+                    },
+                    setInterval: { interval in
+                        reminderService.updateInterval(interval, for: .sedentary)
+                    },
+                    preview: {
+                        reminderService.preview(.sedentary)
+                    }
+                )
+
+                ReminderSettingRow(
+                    kind: .hydration,
+                    configuration: reminderService.configuration(for: .hydration),
+                    setEnabled: { isEnabled in
+                        reminderService.setEnabled(isEnabled, for: .hydration)
+                    },
+                    setInterval: { interval in
+                        reminderService.updateInterval(interval, for: .hydration)
+                    },
+                    preview: {
+                        reminderService.preview(.hydration)
+                    }
+                )
+            }
+
             HStack {
                 Button("恢复默认") {
                     service.resetMenuBarPrefix()
@@ -243,7 +284,7 @@ struct UsageMenuView: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 18)
-        .frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 380, alignment: .topLeading)
         .onAppear {
             menuBarPrefixDraft = service.menuBarPrefix
         }
@@ -309,6 +350,78 @@ struct UsageMenuView: View {
             return service.state == .loading ? "正在更新" : "等待更新"
         }
         return "更新于 " + updatedAt.formatted(date: .omitted, time: .shortened)
+    }
+}
+
+private struct ReminderSettingRow: View {
+    let kind: ReminderKind
+    let configuration: ReminderConfiguration
+    let setEnabled: (Bool) -> Void
+    let setInterval: (Int) -> Void
+    let preview: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Toggle(
+                isOn: Binding(
+                    get: { configuration.isEnabled },
+                    set: { isEnabled in setEnabled(isEnabled) }
+                )
+            ) {
+                Label(kind.title, systemImage: kind.systemImage)
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .accessibilityHint("开启后按设置的分钟数重复提醒")
+
+            HStack(spacing: 6) {
+                Text("每")
+
+                TextField(
+                    "分钟",
+                    value: Binding(
+                        get: { configuration.intervalMinutes },
+                        set: { setInterval($0) }
+                    ),
+                    format: .number
+                )
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .monospacedDigit()
+                .frame(width: 58)
+                .accessibilityLabel("\(kind.title)间隔分钟数")
+
+                Text("分钟提醒")
+
+                Spacer()
+
+                Stepper(
+                    "",
+                    value: Binding(
+                        get: { configuration.intervalMinutes },
+                        set: { setInterval($0) }
+                    ),
+                    in: ReminderService.minimumIntervalMinutes...ReminderService.maximumIntervalMinutes
+                )
+                .labelsHidden()
+                .controlSize(.small)
+                .accessibilityLabel("调整\(kind.title)间隔")
+
+                Button("测试") {
+                    preview()
+                }
+                .controlSize(.small)
+                .accessibilityLabel("测试\(kind.title)弹窗")
+            }
+            .font(.system(size: 11))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .background(
+            Color(nsColor: .controlBackgroundColor).opacity(0.72),
+            in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+        )
     }
 }
 

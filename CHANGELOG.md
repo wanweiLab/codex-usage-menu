@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented here.
 
+## 0.4.0 - 2026-08-07
+
+- Add independently configurable sedentary and hydration reminders with 1–720 minute intervals.
+- Show large, topmost reminder popups in the center of the current screen with a 60-second countdown and manual close controls.
+- Add immediate reminder previews from settings and persist reminder configuration locally.
+
 ## 0.3.3 - 2026-07-23
 
 - Use the Codex Pulse app logo in the menu header instead of the generic code symbol.

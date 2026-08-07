@@ -194,6 +194,86 @@ final class CodexUsageMenuTests: XCTestCase {
         XCTAssertEqual(result.1, "1234 567｜周 --")
     }
 
+    func testReminderDefaultsPersistAndClampIntervals() async {
+        let suiteName = "CodexUsageMenuTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+
+        let presenter = await MainActor.run { RecordingReminderPresenter() }
+        let service = await MainActor.run {
+            ReminderService(
+                presenter: presenter,
+                defaults: UserDefaults(suiteName: suiteName)!,
+                secondsPerMinute: 3_600
+            )
+        }
+
+        let defaults = await MainActor.run {
+            (
+                service.configuration(for: .sedentary),
+                service.configuration(for: .hydration)
+            )
+        }
+        XCTAssertEqual(defaults.0, ReminderConfiguration(isEnabled: false, intervalMinutes: 60))
+        XCTAssertEqual(defaults.1, ReminderConfiguration(isEnabled: false, intervalMinutes: 45))
+
+        await MainActor.run {
+            service.updateInterval(0, for: .sedentary)
+            service.setEnabled(true, for: .sedentary)
+            service.updateInterval(999, for: .hydration)
+        }
+
+        let restoredService = await MainActor.run {
+            ReminderService(
+                presenter: presenter,
+                defaults: UserDefaults(suiteName: suiteName)!,
+                secondsPerMinute: 3_600
+            )
+        }
+        let restored = await MainActor.run {
+            (
+                restoredService.configuration(for: .sedentary),
+                restoredService.configuration(for: .hydration)
+            )
+        }
+        XCTAssertEqual(restored.0, ReminderConfiguration(isEnabled: true, intervalMinutes: 1))
+        XCTAssertEqual(restored.1, ReminderConfiguration(isEnabled: false, intervalMinutes: 720))
+
+        await MainActor.run {
+            service.setEnabled(false, for: .sedentary)
+        }
+    }
+
+    func testEnabledReminderPresentsAndStopsAfterDisabling() async throws {
+        let suiteName = "CodexUsageMenuTests.\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+
+        let presenter = await MainActor.run { RecordingReminderPresenter() }
+        let service = await MainActor.run {
+            ReminderService(
+                presenter: presenter,
+                defaults: UserDefaults(suiteName: suiteName)!,
+                secondsPerMinute: 0.02
+            )
+        }
+
+        await MainActor.run {
+            service.updateInterval(1, for: .hydration)
+            service.setEnabled(true, for: .hydration)
+        }
+        try await Task.sleep(for: .milliseconds(35))
+
+        let firstCount = await MainActor.run { presenter.presentedKinds.count }
+        XCTAssertGreaterThanOrEqual(firstCount, 1)
+
+        await MainActor.run {
+            service.setEnabled(false, for: .hydration)
+        }
+        try await Task.sleep(for: .milliseconds(30))
+
+        let finalCount = await MainActor.run { presenter.presentedKinds.count }
+        XCTAssertEqual(finalCount, firstCount)
+    }
+
     func testRelativeResetFormatting() {
         let now = Date(timeIntervalSince1970: 1_000_000)
         XCTAssertEqual(
@@ -230,6 +310,15 @@ final class CodexUsageMenuTests: XCTestCase {
             planType: "plus",
             updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
         )
+    }
+}
+
+@MainActor
+private final class RecordingReminderPresenter: ReminderPresenting {
+    private(set) var presentedKinds: [ReminderKind] = []
+
+    func present(_ kind: ReminderKind) {
+        presentedKinds.append(kind)
     }
 }
 
