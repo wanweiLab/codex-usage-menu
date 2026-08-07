@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented here.
 
+## 0.4.3 - 2026-08-07
+
+- Remove the bottom close button from reminder popups.
+- Make reminder popup windows fully transparent without card borders or shadows.
+- Recenter reminder content in the transparent square overlay.
+
 ## 0.4.2 - 2026-08-07
 
 - Redesign reminder popups as centered square cards.
