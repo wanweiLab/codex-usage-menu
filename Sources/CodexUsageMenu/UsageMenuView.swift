@@ -4,7 +4,6 @@ import SwiftUI
 struct UsageMenuView: View {
     @ObservedObject var service: CodexUsageService
     @ObservedObject var reminderService: ReminderService
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isShowingPreferences = false
     @State private var menuBarPrefixDraft = ""
 
@@ -13,17 +12,19 @@ struct UsageMenuView: View {
             accentBar
             header
             Divider()
-            if isShowingPreferences {
-                preferences
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .trailing)))
-            } else {
-                content
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .leading)))
+            Group {
+                if isShowingPreferences {
+                    preferences
+                } else {
+                    content
+                }
             }
+            .frame(height: CodexTheme.panelContentHeight, alignment: .top)
+            .clipped()
             Divider()
             footer
         }
-        .frame(width: CodexTheme.panelWidth)
+        .frame(width: CodexTheme.panelWidth, height: CodexTheme.panelHeight)
         .background(.ultraThinMaterial)
     }
 
@@ -85,7 +86,6 @@ struct UsageMenuView: View {
                         .padding(.bottom, 17)
                 }
             }
-            .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
         } else {
             stateView
         }
@@ -142,11 +142,9 @@ struct UsageMenuView: View {
                     Spacer()
 
                     Button("完成") {
-                        withAnimation(.easeInOut(duration: reduceMotion ? 0 : 0.18)) {
-                            isShowingPreferences = false
-                        }
+                        isShowingPreferences = false
                     }
-                    .keyboardShortcut(.defaultAction)
+                    .accessibilityLabel("完成设置")
                 }
                 .padding(.horizontal, 18)
             } else {
@@ -159,9 +157,7 @@ struct UsageMenuView: View {
                     Spacer()
 
                     Button {
-                        withAnimation(.easeInOut(duration: reduceMotion ? 0 : 0.18)) {
-                            isShowingPreferences = true
-                        }
+                        isShowingPreferences = true
                     } label: {
                         Image(systemName: "gearshape")
                             .frame(width: 30, height: 30)
@@ -284,7 +280,7 @@ struct UsageMenuView: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 16)
         }
-        .frame(height: 354)
+        .frame(height: CodexTheme.panelContentHeight)
         .onAppear {
             menuBarPrefixDraft = service.menuBarPrefix
         }

@@ -8,4 +8,6 @@ enum CodexTheme {
     static let border = Color.primary.opacity(0.09)
     static let secondaryText = Color.secondary
     static let panelWidth: CGFloat = 354
+    static let panelContentHeight: CGFloat = 354
+    static let panelHeight: CGFloat = 482
 }

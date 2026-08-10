@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented here.
 
+## 0.4.6 - 2026-08-10
+
+- Fix an AppKit constraint-update loop that could crash the app when leaving settings.
+- Keep the menu window at a stable size while switching between usage and settings.
+- Remove the default Return-key action from the settings completion button.
+
 ## 0.4.5 - 2026-08-07
 
 - Replace the fully transparent reminder overlay with an ultra-thin frosted glass surface.
