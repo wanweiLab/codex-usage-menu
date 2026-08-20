@@ -100,7 +100,27 @@ swift test
 ./scripts/install.sh
 ```
 
-更新时拉取最新代码后再次执行 `./scripts/install.sh`。卸载运行：
+## 老用户如何更新
+
+不需要卸载，也不需要重新登录 Codex。先退出菜单栏里的旧版 Codex Pulse，然后把下面这句话发给 Codex：
+
+```text
+请更新这个工具：https://github.com/wanweiLab/codex-usage-menu
+```
+
+Codex 会自动拉取最新代码、运行测试、在本机重新编译，并替换旧版应用。默认安装位置是 `~/Applications/Codex Pulse.app`。更新成功后，旧版 `Codex Usage.app` 会自动清理。
+
+如果之前是手动 clone 仓库安装的，在项目目录执行：
+
+```bash
+git pull --ff-only
+swift test
+./scripts/install.sh
+```
+
+菜单栏前缀、久坐提醒和喝水提醒等设置保存在本机，更新时不会主动删除；Codex 登录状态也会继续复用。
+
+卸载运行：
 
 ```bash
 ./scripts/uninstall.sh
