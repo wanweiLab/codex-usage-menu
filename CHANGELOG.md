@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented here.
 
+## 0.4.7 - 2026-08-20
+
+- Update the weekly and short-window reset countdown together with each refreshed quota snapshot.
+- Keep the countdown aligned with the absolute `resetsAt` value returned by Codex.
+
 ## 0.4.6 - 2026-08-10
 
 - Fix an AppKit constraint-update loop that could crash the app when leaving settings.
