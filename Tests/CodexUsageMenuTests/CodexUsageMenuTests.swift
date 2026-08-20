@@ -106,6 +106,32 @@ final class CodexUsageMenuTests: XCTestCase {
         XCTAssertEqual(remaining, 72)
     }
 
+    func testRefreshReplacesResetTimestampAlongsideQuota() async {
+        let originalReset = Date(timeIntervalSince1970: 1_800_000_000)
+        let refreshedReset = Date(timeIntervalSince1970: 1_800_003_600)
+        let client = StubUsageClient(
+            results: [
+                .success(makeSnapshot(remainingPercent: 72, resetsAt: originalReset)),
+                .success(makeSnapshot(remainingPercent: 4, resetsAt: refreshedReset))
+            ]
+        )
+        let service = await MainActor.run {
+            CodexUsageService(client: client)
+        }
+
+        await service.refresh()
+        await service.refresh()
+
+        let result = await MainActor.run {
+            (
+                service.snapshot?.weeklyWindow?.remainingPercent,
+                service.snapshot?.weeklyWindow?.resetsAt
+            )
+        }
+        XCTAssertEqual(result.0, 4)
+        XCTAssertEqual(result.1, refreshedReset)
+    }
+
     func testRefreshFailureKeepsLastSnapshotAndAddsDiagnostics() async {
         let original = makeSnapshot(remainingPercent: 64)
         let client = StubUsageClient(
@@ -297,14 +323,17 @@ final class CodexUsageMenuTests: XCTestCase {
         return try String(contentsOf: url, encoding: .utf8)
     }
 
-    private func makeSnapshot(remainingPercent: Int) -> UsageSnapshot {
+    private func makeSnapshot(
+        remainingPercent: Int,
+        resetsAt: Date = Date(timeIntervalSince1970: 1_800_000_000)
+    ) -> UsageSnapshot {
         UsageSnapshot(
             windows: [
                 UsageWindow(
                     id: "codex-primary",
                     usedPercent: 100 - remainingPercent,
                     durationMinutes: 10_080,
-                    resetsAt: Date(timeIntervalSince1970: 1_800_000_000)
+                    resetsAt: resetsAt
                 )
             ],
             planType: "plus",

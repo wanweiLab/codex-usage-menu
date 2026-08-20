@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented here.
 
+## 0.4.8 - 2026-08-20
+
+- Keep reset countdown text updating as time passes instead of freezing at the last rendered minute.
+- Recreate the countdown immediately when a refreshed quota snapshot returns a different absolute `resetsAt` value.
+
 ## 0.4.7 - 2026-08-20
 
 - Update the weekly and short-window reset countdown together with each refreshed quota snapshot.

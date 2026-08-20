@@ -417,7 +417,7 @@ private struct UsagePrimaryView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(resetText)
+                ResetCountdownText(resetsAt: window.resetsAt)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
@@ -455,11 +455,6 @@ private struct UsagePrimaryView: View {
         .padding(.top, 18)
         .padding(.bottom, 18)
     }
-
-    private var resetText: String {
-        guard let resetsAt = window.resetsAt else { return "重置时间未知" }
-        return ResetTimeFormatter.relativeText(to: resetsAt) + "后重置"
-    }
 }
 
 private struct UsageSecondaryView: View {
@@ -485,7 +480,7 @@ private struct UsageSecondaryView: View {
             HStack {
                 Text("短周期限制")
                 Spacer()
-                Text(resetText)
+                ResetCountdownText(resetsAt: window.resetsAt)
             }
             .font(.system(size: 10.5))
             .foregroundStyle(.secondary)
@@ -506,10 +501,23 @@ private struct UsageSecondaryView: View {
         }
         return "\(minutes)分钟额度"
     }
+}
 
-    private var resetText: String {
-        guard let resetsAt = window.resetsAt else { return "重置时间未知" }
-        return ResetTimeFormatter.relativeText(to: resetsAt) + "后重置"
+private struct ResetCountdownText: View {
+    let resetsAt: Date?
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            Text(text(now: context.date))
+        }
+        // Recreate the timeline immediately when a refreshed quota snapshot
+        // contains a new absolute reset timestamp.
+        .id(resetsAt)
+    }
+
+    private func text(now: Date) -> String {
+        guard let resetsAt else { return "重置时间未知" }
+        return ResetTimeFormatter.relativeText(to: resetsAt, now: now) + "后重置"
     }
 }
 
